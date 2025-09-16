@@ -1,0 +1,71 @@
+[
+  {
+    "team": "서플팀",
+    "part": "",
+    "role": "",
+    "domain": "",
+    "type": "choice",
+    "question": "본인의 장애대응 경험과 수준을 어떻게 판단하는가?",
+    "required": true,
+    "options": [
+      "1. 장애고지부터 해소까지 전 과정을 관리할 수 있으며, 장애원인 확인 및 대응에 필요한 인력에 대해 명확히 알고 지시할 수 있다.",
+      "2. 본인의 업무영역에 대해 스스로 장애영향도 파악을 통해, 2차 영향도 해소 작업 및 수습 작업을 확인 및 수행할 수 있다.",
+      "3. 장애관리자의 지시를 받아 요청 부분에 대해 명확히 검토 및 추가이슈 발생 가능성에 대해 파악할 수 있다.",
+      "4. 해소 된 장에에 대한 회고를 듣고 개선방향을 제시할 수 있다."
+    ],
+    "etc": true
+  },
+  {
+    "team": "서플팀",
+    "part": "",
+    "role": "",
+    "domain": "",
+    "type": "scale",
+    "question": "다음 역량 항목에 대한 본인의 능숙도는?",
+    "required": true,
+    "competency": "컨플루언스 활용",
+    "org_level": "상"
+  },
+  {
+    "team": "서플팀",
+    "part": "",
+    "role": "",
+    "domain": "",
+    "type": "scale",
+    "question": "다음 역량 항목에 대한 본인의 능숙도는?",
+    "required": true,
+    "competency": "아사나 활용",
+    "org_level": "중"
+  },
+  {
+    "team": "서플팀",
+    "part": "",
+    "role": "",
+    "domain": "",
+    "type": "scale",
+    "question": "- 고객의 요구사항을 종합하여 전산시스템 구축 진행을 위한 설계 능력의 수준을 어떻게 판단하는가?",
+    "required": true,
+    "competency": "nan",
+    "org_level": "nan"
+  },
+  {
+    "team": "서플팀",
+    "part": "",
+    "role": "",
+    "domain": "",
+    "type": "scale",
+    "question": "- 요구되는 기능구현을 수행 시 개발결과물을 생산하기 까지의 작업진행 능력의 수준을 어떻게 판단하는가?",
+    "required": true,
+    "competency": "nan",
+    "org_level": "nan"
+  },
+  {
+    "team": "서플팀",
+    "part": "",
+    "role": "",
+    "domain": "",
+    "type": "text",
+    "question": "앞으로 가장 성장하고 싶은 기술/역량은 무엇인가요?",
+    "required": true
+  }
+]
