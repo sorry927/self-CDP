@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>퍼플아이오 통합 CDP 셀프진단</title>
+  <title>서비스플랫폼개발팀 CDP 셀프진단</title>
   <style>
     body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; background: #f9f9f9; }
     .header {
@@ -15,9 +15,30 @@
       max-width: 1000px; margin: 30px auto; padding: 25px;
       background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
+    /* 표 전체는 페이지 중간에서 안 잘리게 */
+    table {
+      page-break-inside: auto; /* 자동 분할 허용 */
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    /* 행은 페이지 분할 허용 */
+    tr {
+      page-break-inside: auto; 
+      page-break-after: auto;
+    }
+
+    /* 셀 내부 글씨는 강제로 보여지도록 */
+    td, th {
+      word-break: break-word;   /* ✅ 긴 텍스트 줄바꿈 */
+      white-space: normal;      /* ✅ 줄바꿈 허용 */
+      page-break-inside: avoid; /* ✅ 셀 분리 방지 */
+    }
+
+    h2 { margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 5px; }
     .question { margin-bottom: 25px; text-align: left; }
     label { font-weight: bold; display: block; margin-bottom: 8px; }
-    select, input[type="text"], textarea {
+    select, input[type="text"] {
       width: 100%; padding: 8px; margin-top: 5px;
       border: 1px solid #ccc; border-radius: 5px; font-size: 1em;
     }
@@ -36,220 +57,126 @@
     .goal-box { background: #f8f6ff; border-left: 5px solid #5A4FCF;
                 padding: 15px; margin-top: 15px; border-radius: 5px; }
     .highlight { font-weight: bold; color: #5A4FCF; }
+    .bar { height: 20px; border-radius: 5px; margin: 5px 0; }
+    .bar.me { background: #5A4FCF; }
+    .bar.org { background: #aaa; }
+    
   </style>
 
   <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { 
+    getFirestore, collection, addDoc, serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { 
+    getStorage, ref, getDownloadURL 
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBp2CN3ZoPu7Wfzh_6qr0Tnw3wNuoXwU3I",
-      authDomain: "self-cdp1.firebaseapp.com",
-      projectId: "self-cdp1",
-      storageBucket: "self-cdp1.firebasestorage.app",
-      messagingSenderId: "1020721578797",
-      appId: "1:1020721578797:web:673317f387ff17fc4dc9a4"
-    };
+  const firebaseConfig = {
+    apiKey: "AIzaSyBp2CN3ZoPu7Wfzh_6qr0Tnw3wNuoXwU3I",
+    authDomain: "self-cdp1.firebaseapp.com",
+    projectId: "self-cdp1",
+    storageBucket: "self-cdp1.appspot.com",   <!-- ✅ 수정: 올바른 bucket 주소 -->
+    messagingSenderId: "1020721578797",
+    appId: "1:1020721578797:web:673317f387ff17fc4dc9a4"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const storage = getStorage(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
 
-    // ✅ 문항 불러오기
-    async function loadQuestions() {
-      try {
-        const url = await getDownloadURL(ref(storage, "questions.json"));
-        const response = await fetch(url);
-        const data = await response.json();
-        window.questionsData = data;
-        console.log("문항 로딩 완료 ✅");
-
-        // 기본 정보 가져오기
-        const team = document.getElementById("teamSelect").value;
-        const part = document.getElementById("partSelect").value;
-        const role = document.getElementById("roleSelect").value;
-
-        // Soft Skill
-        const softQuestions = data.filter(q =>
-          q.domain === "SoftSkill" &&
-          q.team === team && (!q.part || q.part === part) && (!q.role || q.role === role)
-        );
-        renderQuestions(softQuestions, "softskill-questions");
-
-        // Hard Skill
-        const hardQuestions = data.filter(q =>
-          q.domain === "HardSkill" &&
-          q.team === team && (!q.part || q.part === part) && (!q.role || q.role === role)
-        );
-        renderQuestions(hardQuestions, "hardskill-questions");
-
-      } catch (err) {
-        console.error("문항 로딩 오류:", err);
-      }
+  // ✅ (1) 문항 JSON 불러오기 (Storage)
+  async function loadQuestions() {
+    try {
+      const url = await getDownloadURL(ref(storage, "questions.json"));
+      const response = await fetch(url);
+      const data = await response.json();
+      window.questionsData = data;  // 전역 저장
+      console.log("문항 데이터 로딩 완료:", data);
+    } catch (err) {
+      console.error("문항 로딩 오류:", err);
     }
+  }
+  loadQuestions();
 
-    // ✅ 문항 렌더링
-    function renderQuestions(questions, containerId) {
-      const container = document.getElementById(containerId);
-      container.innerHTML = "";
-
-      questions.forEach((q, idx) => {
-        const div = document.createElement("div");
-        div.classList.add("question");
-
-        if (q.type === "choice") {
-          div.innerHTML = `
-            <label>${idx + 1}. ${q.question}</label>
-            <select required>
-              <option value="">선택하세요</option>
-              ${q.options.map(opt => `<option>${opt}</option>`).join("")}
-            </select>
-            ${q.etc ? `<input type="text" placeholder="기타 의견 작성">` : ""}
-          `;
-        }
-
-        if (q.type === "scale") {
-          div.innerHTML = `
-            <label>${idx + 1}. ${q.question} (${q.competency})</label>
-            ${["상","중","하","경험없음"].map(level =>
-              `<label><input type="radio" name="${containerId}-scale-${idx}" value="${level}">${level}</label>`
-            ).join("")}
-            <p style="font-size:0.8em;color:#888;">조직 필요 수준: ${q.org_level}</p>
-          `;
-        }
-
-        if (q.type === "text") {
-          div.innerHTML = `
-            <label>${idx + 1}. ${q.question}</label>
-            <textarea rows="4" style="width:100%;"></textarea>
-          `;
-        }
-
-        container.appendChild(div);
+  // ✅ (2) Firestore 저장 함수
+  async function saveSurvey(team, sub, role, name, answers, goalText) {
+    try {
+      await addDoc(collection(db, "surveyResponses"), {
+        team: team,
+        sub: sub,
+        role: role,
+        name: name,
+        answers: answers,
+        personalGoal: goalText,
+        timestamp: serverTimestamp()
       });
+      alert("설문이 성공적으로 저장되었습니다 ✅");
+    } catch (error) {
+      console.error("저장 오류: ", error);
+      alert("저장 중 오류 발생 ❌");
+    }
+  }
+
+  // ✅ (3) 제출 시 응답 수집 → Firestore 저장
+  window.validateGoal = async function() {
+    const goalText = document.getElementById("personal-goal").value.trim();
+    if (!goalText) {
+      alert("개인 성장 목표를 작성해주세요.");
+      return;
     }
 
-    // ✅ 응답 수집
-    function collectAnswers(containerId) {
-      const answers = [];
-      let valid = true;
+    const team = document.getElementById("teamSelect").value.trim();
+    const part = document.getElementById("partSelect").value.trim();
+    const role = document.getElementById("roleSelect").value.trim();
+    const name = document.getElementById("username").value.trim();
 
-      document.querySelectorAll(`#${containerId} .question`).forEach(q => {
-        const label = q.querySelector("label").innerText;
-        const select = q.querySelector("select");
-        const radios = q.querySelectorAll("input[type=radio]");
-        const textarea = q.querySelector("textarea");
-        const input = q.querySelector("input[type=text]");
+    // ✅ 모든 문항 응답 수집
+    const answers = [];
+    document.querySelectorAll(".question").forEach(q => {
+      const label = q.querySelector("label")?.innerText || "";
+      const select = q.querySelector("select");
+      const text = q.querySelector("input[type=text], textarea");
+      const radios = q.querySelectorAll("input[type=radio]");
 
-        let value = "";
-        if (select) value = select.value;
-        if (radios.length > 0) {
-          const checked = [...radios].find(r => r.checked);
-          value = checked ? checked.value : "";
-        }
-        if (textarea) value = textarea.value;
-        if (input && input.value) value += " (기타: " + input.value + ")";
+      let choice = select ? select.value : "";
+      let freeText = text ? text.value : "";
 
-        if (!value) {
-          alert(`${label}에 응답해주세요.`);
-          valid = false;
-          return;
-        }
-
-        answers.push({ question: label, answer: value });
-      });
-
-      return valid ? answers : null;
-    }
-
-    // ✅ 화면 이동 & 저장
-    window.goToNameInput = function() {
-      document.getElementById("start-screen").classList.add("hidden");
-      document.getElementById("name-screen").classList.remove("hidden");
-    }
-
-    window.goBackToStart = function() {
-      document.getElementById("name-screen").classList.add("hidden");
-      document.getElementById("start-screen").classList.remove("hidden");
-    }
-
-    window.goToSoftSkill = function() {
-      const team = document.getElementById("teamSelect").value.trim();
-      const part = document.getElementById("partSelect").value.trim();
-      const role = document.getElementById("roleSelect").value.trim();
-      const name = document.getElementById("username").value.trim();
-
-      if (!team || !part || !role || !name) {
-        alert("모든 기본 정보를 입력해주세요!");
-        return;
+      if (radios.length > 0) {
+        const checked = [...radios].find(r => r.checked);
+        choice = checked ? checked.parentElement.textContent.trim() : "";
       }
 
-      loadQuestions();
-
-      document.getElementById("name-screen").classList.add("hidden");
-      document.getElementById("softskill-screen").classList.remove("hidden");
-    }
-
-    window.validateSoftSkill = function() {
-      const answers = collectAnswers("softskill-questions");
-      if (!answers) return;
-      window.softSkillAnswers = answers;
-
-      document.getElementById("softskill-screen").classList.add("hidden");
-      document.getElementById("hardskill-screen").classList.remove("hidden");
-    }
-
-    window.validateHardSkill = function() {
-      const answers = collectAnswers("hardskill-questions");
-      if (!answers) return;
-      window.hardSkillAnswers = answers;
-
-      document.getElementById("hardskill-screen").classList.add("hidden");
-      document.getElementById("goal-screen").classList.remove("hidden");
-    }
-
-    window.goBackToHardSkill = function() {
-      document.getElementById("goal-screen").classList.add("hidden");
-      document.getElementById("hardskill-screen").classList.remove("hidden");
-    }
-
-    window.validateGoal = async function() {
-      const goalText = document.getElementById("personal-goal").value.trim();
-      if (!goalText) {
-        alert("개인 성장 목표를 작성해주세요.");
-        return;
-      }
-
-      const team = document.getElementById("teamSelect").value.trim();
-      const part = document.getElementById("partSelect").value.trim();
-      const role = document.getElementById("roleSelect").value.trim();
-      const name = document.getElementById("username").value.trim();
-
-      const allAnswers = [
-        ...window.softSkillAnswers,
-        ...window.hardSkillAnswers,
-        { question: "개인 성장 목표", answer: goalText }
-      ];
-
-      try {
-        await addDoc(collection(db, "surveyResponses"), {
-          team, part, role, name,
-          answers: allAnswers,
-          personalGoal: goalText,
-          timestamp: serverTimestamp()
+      if (choice || freeText) {
+        answers.push({
+          question: label,
+          choice: choice,
+          text: freeText
         });
-        alert("설문이 저장되었습니다 ✅");
-      } catch (e) {
-        console.error("저장 오류:", e);
       }
+    });
 
-      document.getElementById("goal-screen").classList.add("hidden");
-      document.getElementById("result-screen").classList.remove("hidden");
-      document.getElementById("goal-section").innerText = goalText;
-    }
-  </script>
+    // ✅ Firestore 저장
+    await saveSurvey(team, part, role, name, answers, goalText);
+
+    // 오늘 날짜 생성 (YYYY-MM-DD)
+    const today = new Date();
+    const diagnosisDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+    // Goal → Result 페이지 이동
+    document.getElementById("goal-screen").classList.add("hidden");
+    document.getElementById("result-screen").classList.remove("hidden");
+
+    // 결과지 반영
+    document.getElementById("diagnosis-date").innerText = `진단 일자: ${diagnosisDate}`;
+    document.getElementById("goal-section").innerText = goalText;
+  }
+</script>
+
+
+  <!-- PDF 라이브러리 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -258,12 +185,16 @@
     <div class="header"><h1>퍼플아이오 통합 CDP 셀프진단</h1></div>
     <div class="container">
       <p>CDP 셀프진단에 오신 것을 환영합니다.<br><br>
-         이 진단은 <b>공통 역량과 도메인별 실무 역량</b>을 종합적으로 확인하여
+
+         이 진단은 <b>공통 역량과 도메인별 실무 역량</b>을 종합적으로 확인하여<br>
          여러분의 현재 수준을 살펴보고, 개인별 성장 계획과 교육 지원에 활용됩니다.<br><br>
-         각 문항을 읽고 본인의 실제 수행 수준에 가장 가까운 선택지를 선택해 주세요.<br>
+
+         각 문항을 읽고 <b>본인의 실제 수행 수준에 가장 가까운 선택지</b>를 선택해 주세요.<br>
          필요 시 “기타 의견 작성”란에 구체적인 경험이나 보완 의견을 자유롭게 남기실 수 있습니다.<br><br>
+
          모든 답변은 자기 개발을 위한 참고 자료로만 사용되니,<br>
-         편안하고 솔직하게 응답해 주시기 바랍니다.</p>
+         편안하고 솔직하게 응답해 주시기 바랍니다.<br>
+        </p>
       <div class="btn-area">
         <button class="btn" onclick="goToNameInput()">진단 시작하기</button>
       </div>
@@ -283,6 +214,7 @@
           <option value="Vertical Part">Vertical Part</option>
         </select>
       </div>
+
       <div class="question">
         <label>파트 *</label>
         <select id="partSelect">
@@ -292,7 +224,9 @@
           <option value="파트너오피스개발 Part">파트너오피스개발 Part</option>
           <option value="Vertical Part">Vertical Part</option>
         </select>
-      </div>
+      </div>  
+
+
       <div class="question">
         <label>직무 *</label>
         <select id="roleSelect">
@@ -306,53 +240,460 @@
         <label>이름 *</label>
         <input type="text" id="username" placeholder="예: 홍길동">
       </div>
+
       <div class="btn-area">
         <button class="btn-secondary" onclick="goBackToStart()">이전</button>
         <button class="btn" onclick="goToSoftSkill()">다음</button>
       </div>
+
     </div>
   </div>
 
-  <!-- (3) Soft Skill -->
+  <!-- (3) Soft Skill 화면 -->
   <div id="softskill-screen" class="hidden">
-    <div class="header"><h1>공통 Soft Skill</h1></div>
-    <div class="container" id="softskill-questions"></div>
-    <div class="btn-area">
-      <button class="btn" onclick="validateSoftSkill()">다음 (Hard Skill)</button>
+    <div class="header">
+      <h1>서비스플랫폼개발팀 CDP 셀프진단</h1>
+      <p>공통 Soft Skill 영역</p>
     </div>
-  </div>
-
-  <!-- (4) Hard Skill -->
-  <div id="hardskill-screen" class="hidden">
-    <div class="header"><h1>공통 Hard Skill</h1></div>
-    <div class="container" id="hardskill-questions"></div>
-    <div class="btn-area">
-      <button class="btn-secondary" onclick="document.getElementById('softskill-screen').classList.remove('hidden');document.getElementById('hardskill-screen').classList.add('hidden');">이전</button>
-      <button class="btn" onclick="validateHardSkill()">다음 (개인 성장 목표)</button>
-    </div>
-  </div>
-
-  <!-- (5) 개인 성장 목표 -->
-  <div id="goal-screen" class="hidden">
-    <div class="header"><h1>개인 성장 목표</h1></div>
     <div class="container">
-      <textarea id="personal-goal" rows="6" style="width:100%;"></textarea>
+      <h2>공통 Soft Skill 문항 (1~4)</h2>
+
+      <!-- 문항 1 -->
+      <div class="question">
+        <label>1. 본인의 장애대응 경험과 수준을 어떻게 판단하는가?</label>
+        <select required>
+          <option value="">선택하세요</option>
+          <option>1. 장애시부터 해소까지 전 과정을 관리할 수 있으며, 장애인입 확인 및 대응에 필요한 인력에 대해 명확히 알고 지시할 수 있다.</option>
+          <option>2. 업무의 영역에서 주요한 장애요인을 파악 후 원인, 2차 영향도까지 확인 후 복구작업을 확인 및 수행할 수 있다.</option>
+          <option>3. 개발/운영자의 지식을 받아 오류의 원인을 이해할 수 있으나, 즉각적인 복구/수행 가능성에 대해 파악할 수 있다.</option>
+          <option>4. 운영업무에 대한 지식이 부족하여 대응 시 어려움이 있다.</option>
+        </select>
+        <input type="text" placeholder="기타(위의 선택지 외 자신의 수준에 대해 별도로 기술할 내용이 있으면 작성해주세요.)">
+      </div>
+
+      <!-- 문항 2 -->
+      <div class="question">
+        <label>2. 본인의 운영업무 처리와 충족시키는 어느 정도 수준이라고 판단하는가?</label>
+        <select required>
+          <option value="">선택하세요</option>
+          <option>1. 운영업무의 우선순위를 중요한 프로세스를 이해하고, 예상치 못한 장애업의 요구사항을 구체화할 수 있고, 요구사항의 핵심을 파악하여 더 나은 진행(개선)방식을 제안할 수 있다.</option>
+          <option>2. 운영업무의 프로세스를 이해하고, 이슈 발생 시 우선순위를 이해하고 테스트 및 전결절차까지의 업무를 책임지고 수행할 수 있다.</option>
+          <option>3. 운영업무의 프로세스를 이해하고 있으나, 이슈 발생시 확인 및 개선방안을 수립할 수 없다.</option>
+          <option>4. 운영업무의 프로세스를 숙지하지 못하여 업무수행 및 책임 수행이 어렵다.</option>
+        </select>
+        <input type="text" placeholder="기타(위의 선택지 외 자신의 수준에 대해 별도로 기술할 내용이 있으면 작성해주세요.)">
+      </div>
+
+      <!-- 문항 3 -->
+      <div class="question">
+        <label>3. 고도화/신규프로젝트에서 본인이 할 수 있는 최대범위의 역할은 어떻게 판단하는가?</label>
+        <select required>
+          <option value="">선택하세요</option>
+          <option>1. 요구사항의 정의 및 시스템/프로세스 설계, 일정, 운영까지 전반적으로 참여하며 PM까지 수행할 수 있다.</option>
+          <option>2. 요구사항의 정의 및 시스템/프로세스 설계, 개발, 운영까지 전반적으로 참여할 수 있다.</option>
+          <option>3. 요구사항의 정의 및 시스템 개발자로 참여할 수 있다.</option>
+          <option>4. 요구사항의 정의 및 개발자로 참여할 수 있다.</option>
+        </select>
+        <input type="text" placeholder="기타(위의 선택지 외 자신의 수준에 대해 별도로 기술할 내용이 있으면 작성해주세요.)">
+      </div>
+
+      <!-- 문항 4 (능숙도 표) -->
+      <div class="question">
+        <label>4. 다음 직무역량 각 항목에 대해, 본인의 능숙도를 상/중/하/경험없음 중 하나로 기입해주세요.</label>
+        <table>
+          <tr><th>역량 항목</th><th>상</th><th>중</th><th>하</th><th>경험없음</th></tr>
+          <tr><td>컨플루언스 활용</td><td><input type="radio" name="soft4-1"></td><td><input type="radio" name="soft4-1"></td><td><input type="radio" name="soft4-1"></td><td><input type="radio" name="soft4-1"></td></tr>
+          <tr><td>아사나 활용</td><td><input type="radio" name="soft4-2"></td><td><input type="radio" name="soft4-2"></td><td><input type="radio" name="soft4-2"></td><td><input type="radio" name="soft4-2"></td></tr>
+          <tr><td>프로젝트 산출물 작성</td><td><input type="radio" name="soft4-3"></td><td><input type="radio" name="soft4-3"></td><td><input type="radio" name="soft4-3"></td><td><input type="radio" name="soft4-3"></td></tr>
+          <tr><td>보고서 작성</td><td><input type="radio" name="soft4-4"></td><td><input type="radio" name="soft4-4"></td><td><input type="radio" name="soft4-4"></td><td><input type="radio" name="soft4-4"></td></tr>
+          <tr><td>요구사항 분석 및 산출물 작성</td><td><input type="radio" name="soft4-5"></td><td><input type="radio" name="soft4-5"></td><td><input type="radio" name="soft4-5"></td><td><input type="radio" name="soft4-5"></td></tr>
+          <tr><td>코드 분석 및 개선사항 도출</td><td><input type="radio" name="soft4-6"></td><td><input type="radio" name="soft4-6"></td><td><input type="radio" name="soft4-6"></td><td><input type="radio" name="soft4-6"></td></tr>
+          <tr><td>Figma / draw.io</td><td><input type="radio" name="soft4-7"></td><td><input type="radio" name="soft4-7"></td><td><input type="radio" name="soft4-7"></td><td><input type="radio" name="soft4-7"></td></tr>
+        </table>
+      </div>
+
       <div class="btn-area">
-        <button class="btn-secondary" onclick="goBackToHardSkill()">이전</button>
-        <button class="btn" onclick="validateGoal()">제출하기</button>
+        <button class="btn" onclick="validateSoftSkill()">다음 (Hard Skill)</button>
       </div>
     </div>
   </div>
 
-  <!-- (6) 결과 화면 -->
-  <div id="result-screen" class="hidden">
-    <div class="header"><h1>나의 CDP 결과</h1></div>
+  <!-- (4) Hard Skill 화면 -->
+  <div id="hardskill-screen" class="hidden">
+    <div class="header">
+      <h1>서비스플랫폼개발팀 CDP 셀프진단</h1>
+      <p>공통 Hard Skill 영역</p>
+    </div>
     <div class="container">
+      <h2>공통 Hard Skill 문항 (1~4)</h2>
+
+      <!-- 문항 1 -->
+      <div class="question">
+        <label>1. 고객의 요구사항을 종합하여 전산시스템 구축 진행을 위한 설계 능력의 수준은 어떻게 판단하는가?</label>
+        <select required>
+          <option value="">선택하세요</option>
+          <option>1. 비즈니스를 명확히 이해하고 비용, 안정성, 생산성 등 모든 측면을 고려하여 최적화 된 구조체를 설계할 수 있다.</option>
+          <option>2. 데이터 처리효율성, 시스템의 요구사항을 분석하여 최적화 가능한 설계를 수행할 수 있다.</option>
+          <option>3. 기본적인 설계 수준의 구조체를 작성할 수 있다.</option>
+          <option>4. 설계 수행이 어렵다.</option>
+        </select>
+        <input type="text" placeholder="기타(위의 선택지 외 자신의 수준에 대해 별도로 기술할 내용이 있으면 작성해주세요.)">
+      </div>
+
+      <!-- 문항 2 -->
+      <div class="question">
+        <label>2. 요구되는 기능구현을 수행 시 개발결과물을 생산하기 까지의 작업진행 능력의 수준은 어떻게 판단하는가?</label>
+        <select required>
+          <option value="">선택하세요</option>
+          <option>1. 요구되는 기능의 구현을 명확히 수행하며, 전체 구현을 숙련되게 진행할 수 있다.</option>
+          <option>2. 주요 기능의 구현을 수행할 수 있다.</option>
+          <option>3. 기능 구현의 일부 단계를 수행할 수 있다.</option>
+          <option>4. 구현 수행이 어렵다.</option>
+        </select>
+        <input type="text" placeholder="기타(위의 선택지 외 자신의 수준에 대해 별도로 기술할 내용이 있으면 작성해주세요.)">
+      </div>
+
+      <!-- 문항 3 -->
+      <div class="question">
+        <label>3. 외부조직과의 협업과정에서 목표달성을 위해 진행하는 업무 능력의 수준은 어떻게 판단하는가?</label>
+        <select required>
+          <option value="">선택하세요</option>
+          <option>1. 외부조직과 협업하여 명확한 R&R을 정의하고, 목표를 명확히 하며 효율적인 결과를 도출할 수 있다.</option>
+          <option>2. 외부조직과 협업하여 명확한 목표를 정의하고, 완료까지의 과정을 관리할 수 있다.</option>
+          <option>3. 외부조직과 협업하여 기본적인 협력업무를 수행할 수 있다.</option>
+          <option>4. 협업 경험이 부족하여 수행이 어렵다.</option>
+        </select>
+        <input type="text" placeholder="기타(위의 선택지 외 자신의 수준에 대해 별도로 기술할 내용이 있으면 작성해주세요.)">
+      </div>
+
+      <!-- 문항 4 (능숙도 표) -->
+      <div class="question">
+        <label>4. 다음 직무역량 각 항목에 대해, 본인의 능숙도를 상/중/하/경험없음 중 하나로 기입해주세요.</label>
+        <table>
+          <tr><th>역량 항목</th><th>상</th><th>중</th><th>하</th><th>경험없음</th></tr>
+          <tr><td>Spring</td><td><input type="radio" name="hard4-1"></td><td><input type="radio" name="hard4-1"></td><td><input type="radio" name="hard4-1"></td><td><input type="radio" name="hard4-1"></td></tr>
+          <tr><td>Java</td><td><input type="radio" name="hard4-2"></td><td><input type="radio" name="hard4-2"></td><td><input type="radio" name="hard4-2"></td><td><input type="radio" name="hard4-2"></td></tr>
+          <tr><td>Kotlin</td><td><input type="radio" name="hard4-3"></td><td><input type="radio" name="hard4-3"></td><td><input type="radio" name="hard4-3"></td><td><input type="radio" name="hard4-3"></td></tr>
+          <tr><td>Next.js</td><td><input type="radio" name="hard4-4"></td><td><input type="radio" name="hard4-4"></td><td><input type="radio" name="hard4-4"></td><td><input type="radio" name="hard4-4"></td></tr>
+          <tr><td>React</td><td><input type="radio" name="hard4-5"></td><td><input type="radio" name="hard4-5"></td><td><input type="radio" name="hard4-5"></td><td><input type="radio" name="hard4-5"></td></tr>
+          <tr><td>Typescript</td><td><input type="radio" name="hard4-6"></td><td><input type="radio" name="hard4-6"></td><td><input type="radio" name="hard4-6"></td><td><input type="radio" name="hard4-6"></td></tr>
+          <tr><td>Javascript</td><td><input type="radio" name="hard4-7"></td><td><input type="radio" name="hard4-7"></td><td><input type="radio" name="hard4-7"></td><td><input type="radio" name="hard4-7"></td></tr>
+          <tr><td>Ant Design</td><td><input type="radio" name="hard4-8"></td><td><input type="radio" name="hard4-8"></td><td><input type="radio" name="hard4-8"></td><td><input type="radio" name="hard4-8"></td></tr>
+          <tr><td>JPA/Hibernate</td><td><input type="radio" name="hard4-9"></td><td><input type="radio" name="hard4-9"></td><td><input type="radio" name="hard4-9"></td><td><input type="radio" name="hard4-9"></td></tr>
+          <tr><td>Oracle</td><td><input type="radio" name="hard4-10"></td><td><input type="radio" name="hard4-10"></td><td><input type="radio" name="hard4-10"></td><td><input type="radio" name="hard4-10"></td></tr>
+          <tr><td>MySQL</td><td><input type="radio" name="hard4-11"></td><td><input type="radio" name="hard4-11"></td><td><input type="radio" name="hard4-11"></td><td><input type="radio" name="hard4-11"></td></tr>
+          <tr><td>PostgreSQL</td><td><input type="radio" name="hard4-12"></td><td><input type="radio" name="hard4-12"></td><td><input type="radio" name="hard4-12"></td><td><input type="radio" name="hard4-12"></td></tr>
+          <tr><td>JUnit</td><td><input type="radio" name="hard4-13"></td><td><input type="radio" name="hard4-13"></td><td><input type="radio" name="hard4-13"></td><td><input type="radio" name="hard4-13"></td></tr>
+          <tr><td>Lambda</td><td><input type="radio" name="hard4-14"></td><td><input type="radio" name="hard4-14"></td><td><input type="radio" name="hard4-14"></td><td><input type="radio" name="hard4-14"></td></tr>
+          <tr><td>Kinesis / SQS / SNS</td><td><input type="radio" name="hard4-15"></td><td><input type="radio" name="hard4-15"></td><td><input type="radio" name="hard4-15"></td><td><input type="radio" name="hard4-15"></td></tr>
+          <tr><td>Opensearch / DynamoDB / Redis</td><td><input type="radio" name="hard4-16"></td><td><input type="radio" name="hard4-16"></td><td><input type="radio" name="hard4-16"></td><td><input type="radio" name="hard4-16"></td></tr>
+          <tr><td>RESTful</td><td><input type="radio" name="hard4-17"></td><td><input type="radio" name="hard4-17"></td><td><input type="radio" name="hard4-17"></td><td><input type="radio" name="hard4-17"></td></tr>
+          <tr><td>Batch(AWS, Spring, Quartz)</td><td><input type="radio" name="hard4-18"></td><td><input type="radio" name="hard4-18"></td><td><input type="radio" name="hard4-18"></td><td><input type="radio" name="hard4-18"></td></tr>
+        </table>
+      </div>
+
+      <div class="btn-area">
+        <button class="btn-secondary" onclick="goBackToSoftSkill()">이전</button>
+        <button class="btn" onclick="validateHardSkill()">다음 (개인 성장 목표)</button>
+      </div>
+    </div>
+  </div>
+      <!-- (5) 개인 성장 목표 화면 -->
+  <div id="goal-screen" class="hidden">
+    <div class="header">
+      <h1>서비스플랫폼개발팀 CDP 셀프진단</h1>
+      <p>개인 성장 목표</p>
+    </div>
+    <div class="container">
+      <h2>현재 가장 관심을 가지고 있거나, 더 깊이 성장하고 싶은 기술 분야가 있다면 자유롭게 작성해주세요.</h2>
+      <p style="font-size:0.9em; color:#555;">
+        (※ 입력해주신 내용은 교육 기획 및 성장 지원 방향을 설정할 때 참고 자료로 활용 됩니다.)
+      </p>
+      <div class="question">
+        <textarea id="personal-goal" rows="6" style="width:100%; padding:10px; font-size:1em; border-radius:6px; border:1px solid #ccc;"></textarea>
+      </div>
+
+        <div class="btn-area">
+          <button class="btn-secondary" onclick="goBackToHardSkill()">이전</button>
+          <button class="btn" onclick="validateGoal()">제출하기</button>
+        </div>
+    </div>
+  </div>
+
+  <script>
+    function goToNameInput() {
+      document.getElementById("start-screen").classList.add("hidden");
+      document.getElementById("name-screen").classList.remove("hidden");
+    }
+  
+    function goBackToStart() {
+      document.getElementById("name-screen").classList.add("hidden");
+      document.getElementById("start-screen").classList.remove("hidden");
+    }
+  
+    function goToSoftSkill() {
+      const team = document.getElementById("teamSelect").value.trim();
+      const part = document.getElementById("partSelect").value.trim();
+      const role = document.getElementById("roleSelect").value.trim();
+      const name = document.getElementById("username").value.trim();
+  
+      if (!team) { alert("소속 팀을 선택해주세요!"); return; }
+      if (!part) { alert("소속 파트를 선택해주세요!"); return; }
+      if (!role) { alert("직무를 선택해주세요!"); return; }
+      if (!name) { alert("이름을 입력해주세요!"); return; }
+  
+      document.getElementById("name-screen").classList.add("hidden");
+      document.getElementById("softskill-screen").classList.remove("hidden");
+    }
+  
+    function goBackToSoftSkill() {
+      document.getElementById("hardskill-screen").classList.add("hidden");
+      document.getElementById("softskill-screen").classList.remove("hidden");
+    }
+  
+    function validateSoftSkill() {
+      const selects = document.querySelectorAll("#softskill-screen select");
+      console.log('validateSoftSkill');
+      for (let sel of selects) {
+        if (!sel.value) { alert("모든 문항에 답변해주세요."); return; }
+      }
+      console.log('validateSoftSkill');
+      
+      
+      const groups = [...new Set(Array.from(document.querySelectorAll("#softskill-screen input[type=radio]")).map(r => r.name))];
+      
+      console.log('validateSoftSkill');
+      
+      for (let g of groups) {
+        if (!document.querySelector(`input[name=${g}]:checked`)) {
+          alert("모든 직무역량 항목에 상/중/하/경험없음 중 하나를 선택해주세요."); return;
+        }
+      }
+      console.log('validateSoftSkill');
+      
+      
+      document.getElementById("softskill-screen").classList.add("hidden");
+      document.getElementById("hardskill-screen").classList.remove("hidden");
+    }
+  
+    function validateHardSkill() {
+      const selects = document.querySelectorAll("#hardskill-screen select");
+      for (let sel of selects) {
+        if (!sel.value) { alert("모든 문항에 답변해주세요."); return; }
+      }
+      const groups = [...new Set(Array.from(document.querySelectorAll("#hardskill-screen input[type=radio]")).map(r => r.name))];
+      for (let g of groups) {
+        if (!document.querySelector(`input[name=${g}]:checked`)) {
+          alert("모든 직무역량 항목에 상/중/하/경험없음 중 하나를 선택해주세요."); return;
+        }
+      }
+  
+      // Hard Skill → Goal 페이지 이동
+      document.getElementById("hardskill-screen").classList.add("hidden");
+      document.getElementById("goal-screen").classList.remove("hidden");
+    }
+  
+    function goBackToHardSkill() {
+      document.getElementById("goal-screen").classList.add("hidden");
+      document.getElementById("hardskill-screen").classList.remove("hidden");
+    }
+  
+    function validateGoal() {
+      const goalText = document.getElementById("personal-goal").value.trim();
+      if (!goalText) {
+        alert("개인 성장 목표를 작성해주세요.");
+        return;
+      }
+      
+        // 오늘 날짜 생성 (YYYY-MM-DD)
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const diagnosisDate = `${year}-${month}-${day}`;
+
+      // Goal → Result 페이지 이동
+      document.getElementById("goal-screen").classList.add("hidden");
+      document.getElementById("result-screen").classList.remove("hidden");
+
+      // 결과지 상단에 진단일자 반영
+      document.getElementById("diagnosis-date").innerText = `진단 일자: ${diagnosisDate}`;
+  
+      // 결과지에 값 반영
+      document.getElementById("goal-section").innerText = goalText;
+  
+      alert("설문이 제출되었습니다. (개인 결과지 화면으로 이동)");
+    }
+  </script>
+  
+
+  <!-- (5) 결과지 화면 -->
+   
+  <div id="result-screen" class="hidden">
+    <div class="header">
+      <h1>나의 CDP 셀프진단 결과</h1>
+    </div>
+  
+    <div class="container" id="result-content">
+      <!-- 진단 일자 -->
+      <p id="diagnosis-date" style="font-size:1.1em; font-weight:bold; color:#333; margin-bottom:15px;"></p>
+
+      <!-- 1. 응답 요약 -->
+      <h2>내가 선택한 응답</h2>
+      <table id="answer-table">
+        <thead>
+          <tr><th>영역</th><th>문항</th><th>내 응답</th><th>주관식</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+  
+      <!-- 2. 능숙도 비교 -->
+      <h2>능숙도 비교 (내 선택 vs 조직 필요 수준)</h2>
+      <p class="note">※ 내 선택이 조직 필요 수준보다 낮은 경우 보라색으로 표시됩니다.</p>
+      <table id="skill-table">
+        <thead>
+          <tr><th>스킬/기술</th><th>내 선택</th><th>조직 필요 수준</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+  
+      <!-- 3. 점수 비교 -->
+      <h2>영역별 점수 비교</h2>
+      <div id="score-section"></div>
+  
+      <!-- 4. 개인 성장 목표 -->
       <h2>개인 성장 목표</h2>
       <div id="goal-section" class="goal-box"></div>
     </div>
+  
+    <!-- PDF 다운로드 버튼 -->
+    <div class="btn-area">
+      <button class="btn" onclick="downloadPDF()">결과지 PDF 다운로드</button>
+    </div>
+  
+    <!-- html2pdf 라이브러리 (CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  
+    <script>
+      // 샘플 데이터 (설문 응답 가정)
+      const responses = [
+        { 영역: "Soft Skill", 문항: "장애대응 경험", 선택: "2. 업무의 영역에서 주요한 장애요인을 파악 후 원인, 2차 영향도까지 확인 후 복구작업을 확인 및 수행할 수 있다.", 주관식: "" },
+        { 영역: "Soft Skill", 문항: "운영업무 처리", 선택: "3. 운영업무 프로세스를 이해하고 있으나, 이슈 발생시 확인 및 개선방안을 수립할 수 없다.", 주관식: "" },
+        { 영역: "Hard Skill", 문항: "설계 능력", 선택: "1. 비즈니스를 명확히 이해하고 비용, 안정성, 생산성 등 모든 측면을 고려하여 최적화 된 구조체를 설계할 수 있다.", 주관식: "" },
+        { 영역: "Hard Skill", 문항: "기능구현 능력", 선택: "2. 주요 기능의 구현을 수행할 수 있다.", 주관식: "" }
+      ];
+  
+      // 개인 성장 목표 (서술형 응답 딱 1개)
+      const personalGoal = "AWS 자격증 취득"; // 실제 설문 응답에서 가져오기
+  
+      // 샘플 능숙도 데이터
+      const skillLevels = [
+        { 스킬: "컨플루언스 활용", 내선택: "중", 조직: "상" },
+        { 스킬: "아사나 활용", 내선택: "상", 조직: "상" },
+        { 스킬: "Java", 내선택: "중", 조직: "상" },
+        { 스킬: "React", 내선택: "하", 조직: "중" },
+        { 스킬: "MySQL", 내선택: "상", 조직: "상" }
+      ];
+  
+      // 점수 환산 규칙
+      function convertToScore(choiceText) {
+        if (!choiceText) return 0;
+        const num = parseInt(choiceText.trim().charAt(0));
+        return (num === 1) ? 4 :
+               (num === 2) ? 3 :
+               (num === 3) ? 2 :
+               (num === 4) ? 1 : 0;
+      }
+  
+      // 1. 응답 요약
+      const tableBody = document.querySelector("#answer-table tbody");
+      responses.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${r.영역}</td><td>${r.문항}</td><td>${r.선택}</td><td>${r.주관식 || "-"}</td>`;
+        tableBody.appendChild(tr);
+      });
+  
+      // 2. 능숙도 비교
+      function fillSkillTable(tableId, skills) {
+      const tbody = document.querySelector(`#${tableId} tbody`);
+      const levelMap = { "상": 3, "중": 2, "하": 1, "경험없음": 0 };
+      const skillBody = document.querySelector("#skill-table tbody");
+      skillLevels.forEach(s => {
+        const 내점수 = levelMap[s.내선택] ?? 0;
+        const 조직점수 = levelMap[s.조직] ?? 0;
+        const isLower = 내점수 < 조직점수;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${s.스킬}</td>
+          <td class="${isLower ? 'highlight' : ''}">${s.내선택}</td>
+          <td>${s.조직}</td>
+        `;
+        skillBody.appendChild(tr);
+      });
+      }  
+      fillSkillTable("soft-skill-table", skillLevels.soft);
+      fillSkillTable("hard-skill-table", skillLevels.hard);
+
+      // 3. 영역별 평균 점수
+      const scoreSection = document.getElementById("score-section");
+      const 영역별점수 = {};
+      responses.forEach(r => {
+        const 점수 = convertToScore(r.선택);
+        if (!영역별점수[r.영역]) 영역별점수[r.영역] = [];
+        영역별점수[r.영역].push(점수);
+      });
+
+      // 전체 응답 기준 평균 (내 응답 전체 평균)
+      const 전체점수 = Object.values(영역별점수).flat();
+      const 전체평균 = (전체점수.reduce((a, b) => a + b, 0) / 전체점수.length).toFixed(1);
+
+      for (let 영역 in 영역별점수) {
+      const 내평균 = (영역별점수[영역].reduce((a, b) => a + b, 0) / 영역별점수[영역].length).toFixed(1);
+
+      const div = document.createElement("div");
+      div.classList.add("score-box");
+      div.innerHTML = `
+        <h3>${영역}</h3>
+        <p>내 평균 점수: ${내평균}점 (4점 만점)</p>
+        <div class="bar me" style="width:${내평균 * 25}%"></div>
+        <p>전체 평균 점수: ${전체평균}점 (4점 만점)</p>
+        <div class="bar org" style="width:${전체평균 * 25}%"></div>
+      `;
+      scoreSection.appendChild(div);
+      }
+
+  
+      // 4. 개인 성장 목표 출력
+      const goalSection = document.getElementById("goal-section");
+      goalSection.innerHTML = personalGoal ? personalGoal : "입력된 개인 성장 목표가 없습니다.";
+  
+      // PDF 다운로드
+      function downloadPDF() {
+        const element = document.getElementById("result-screen");
+
+      // 오늘 날짜 가져오기 (YYYY-MM-DD 형식)
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const diagnosisDate = `${year}-${month}-${day}`;
+
+      const opt = {
+        margin: [10, 0, 10, 0],  // 상하단 10px, 좌우 0px
+        filename: `CDP_셀프진단_결과지_${diagnosisDate}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          scrollY: 0
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
+  };
+
+  html2pdf().set(opt).from(element).save();
+}
+    </script>
   </div>
 
 </body>
 </html>
-
