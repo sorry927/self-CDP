@@ -218,14 +218,9 @@
       <div class="question">
         <label>파트 *</label>
         <select id="partSelect">
-          <option value="">선택하세요</option>
-          <option value="CRM개발 Part">CRM개발 Part</option>
-          <option value="WMS개발 Part">WMS개발 Part</option>
-          <option value="파트너오피스개발 Part">파트너오피스개발 Part</option>
-          <option value="백오피스개발 Part">백오피스개발 Part</option>
-          <option value="프론트오피스개발 Part">프론트오피스개발 Part</option>
-          <option value="Vertical Part">Vertical Part</option>
-        </select>
+        <option value="">선택하세요</option>
+        <!-- JS에서 자동으로 옵션이 채워집니다 -->
+      </select>
       </div>  
 
 
@@ -423,6 +418,23 @@
   </div>
 
   <script>
+      // ✅ 팀 선택 시 파트 옵션 변경
+  function updatePartOptions() {
+    const team = document.getElementById("teamSelect").value;
+    const partSelect = document.getElementById("partSelect");
+
+    // 기존 옵션 초기화
+    partSelect.innerHTML = '<option value="">선택하세요</option>';
+
+    if (team && teamPartMap[team]) {
+      teamPartMap[team].forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p;
+        opt.textContent = p;
+        partSelect.appendChild(opt);
+      });
+    }
+  }
     function goToNameInput() {
       document.getElementById("start-screen").classList.add("hidden");
       document.getElementById("name-screen").classList.remove("hidden");
@@ -699,4 +711,5 @@
 
 </body>
 </html>
+
 
